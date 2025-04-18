@@ -22,8 +22,10 @@
 # OTHER DEALINGS IN THE SOFTWARE.
 
 # For more information, please refer to <https://unlicense.org/>
+import sys
 import fnmatch
 
+import httpx
 import click
 from rich.progress import Progress
 
@@ -46,8 +48,13 @@ def copy_issues(source, target):
     """
     Recreate issues and pull requests in a mirrored/forked repository
     """
-    with Progress() as pb:
-        recreate_issues(pb, source, target)
+    try:
+        with Progress() as pb:
+            recreate_issues(pb, source, target)
+    except httpx.HTTPStatusError as e:
+        print(e, file=sys.stderr)
+        print(e.response.read().decode("utf8"), file=sys.stderr)
+        exit(-1)
 
 
 cli.add_command(copy_issues)

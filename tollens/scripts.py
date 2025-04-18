@@ -211,8 +211,6 @@ def recreate_issues(pb: Progress, src_repo, tgt_repo):
 
     issue_ctr = pb.add_task("Issues", total=len(issues_by_number))
     for number, info in issues_by_number.items():
-        if str(info["number"]) != "94":
-            continue
         pb.update(task_id=issue_ctr, completed=number)
         is_pr = "patch_url" in info
         if is_pr:
