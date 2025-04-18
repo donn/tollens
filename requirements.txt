@@ -1,0 +1,7 @@
+rich
+click
+pyyaml
+hishel
+httpx
+truststore
+sortedcontainers
