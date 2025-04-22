@@ -260,3 +260,66 @@ def mirror_repo(pb: Progress, tgt_org, repo):
 
     # 3. Mirror issues and PRs
     recreate_issues(pb, src_repo, tgt_repo)
+
+
+def copy_releases(pb: Progress, src_repo, tgt_repo):
+    session = GitHubSession()
+
+    page = 1
+    last = session.api(
+        "GET",
+        f"/repo/{src_repo}/releases",
+        "get",
+        params={"page": page, "per_page": 100},
+    )
+    releases = last
+    while len(last) == 100:
+        page += 1
+        last = session.api(
+            "GET",
+            f"/repo/{src_repo}/releases",
+            "get",
+            params={"page": page, "per_page": 100},
+        )
+        releases += last
+
+    tgt_owner, tgt_name = tgt_repo.split("/", maxsplit=1)
+
+    release_ctr = pb.add_task("Releases", total=len(releases))
+    for i, release in enumerate(releases):
+        pb.update(task_id=release_ctr, completed=i)
+        print(f"Processing {release['tag_name']}…")
+        with tempfile.TemporaryDirectory() as d:
+            filtered = {
+                k: release[k] for k in ["body", "prerelease", "tag_name", "assets"]
+            }
+            subprocess.check_call(["mkdir", "-p", d])
+            assets = []
+            for asset in filtered["assets"]:
+                print(f"Downloading {asset['name']}…")
+                target = os.path.join(d, asset["name"])
+                subprocess.check_call(["mkdir", "-p", d])
+                subprocess.check_call(
+                    ["curl", "-L", asset["browser_download_url"]],
+                    stdout=open(target, "wb"),
+                )
+                assets.append(target)
+            subprocess.check_call(
+                [
+                    "ghr",
+                    "-owner",
+                    tgt_owner,
+                    "-repository",
+                    tgt_name,
+                    "-token",
+                    session.github_token,
+                    "-body",
+                    filtered["body"],
+                    "-commitish",
+                    "releases",
+                    "-replace",
+                    *(["-prerelease"] if filtered["prerelease"] else []),
+                    filtered["tag_name"],
+                    d,
+                ]
+            )
